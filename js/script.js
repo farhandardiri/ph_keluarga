@@ -5,6 +5,7 @@ let scriptUrl = localStorage.getItem("gsheet_url") || "";
 let treeVP = { x: 0, y: 0, scale: 1 };
 let treePan = null;
 
+// Palet warna untuk garis generasi
 const generationColors = [
   "#B87333",
   "#C0A080",
@@ -17,6 +18,39 @@ const generationColors = [
   "#A95C68",
   "#5D8AA8",
 ];
+
+// Palet warna untuk garis pasangan (akan dipilih secara unik per pasangan)
+const coupleColors = [
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#96CEB4",
+  "#FFEAA7",
+  "#DDA0DD",
+  "#98D8C8",
+  "#F7DC6F",
+  "#BB8FCE",
+  "#85C1E2",
+  "#F8C471",
+  "#A3E4D7",
+  "#F1948A",
+  "#82E0AA",
+  "#F5B7B1",
+];
+
+// Menyimpan warna pasangan yang sudah digunakan (key: pasanganId1|pasanganId2)
+const coupleColorMap = new Map();
+
+// Mendapatkan warna unik untuk sepasang suami-istri
+function getCoupleColor(maleId, femaleId) {
+  const key = [maleId, femaleId].sort().join("|");
+  if (!coupleColorMap.has(key)) {
+    const colorIndex = coupleColorMap.size % coupleColors.length;
+    coupleColorMap.set(key, coupleColors[colorIndex]);
+  }
+  return coupleColorMap.get(key);
+}
+
 const NODE_W = 152,
   NODE_H = 96,
   H_GAP = 40,
@@ -179,6 +213,8 @@ async function saveMember() {
   }
   saveLocalData();
   closeModal("modal-member");
+  // Reset couple color map karena data berubah
+  coupleColorMap.clear();
   renderAll();
 }
 
@@ -195,6 +231,7 @@ async function deleteMember() {
   await pushToSheets(member, "delete");
   saveLocalData();
   closeModal("modal-member");
+  coupleColorMap.clear();
   toast("Anggota berhasil dihapus", "success");
   renderAll();
 }
@@ -259,14 +296,14 @@ function populateDropdowns(excludeId = null) {
     .map((m) => `<option value="${m.id}">${m.nama} (♂)</option>`)
     .join("");
   document.getElementById("f-ayah").innerHTML =
-    '<option value="">-- Pilih Ayah --</option>' + fatherOpts;
+    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + fatherOpts;
 
   const motherOpts = members
     .filter((m) => m.id !== excludeId && m.jk === "P")
     .map((m) => `<option value="${m.id}">${m.nama} (♀)</option>`)
     .join("");
   document.getElementById("f-ibu").innerHTML =
-    '<option value="">-- Pilih Ibu --</option>' + motherOpts;
+    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + motherOpts;
 
   const spouseOpts = members
     .filter((m) => m.id !== excludeId)
@@ -276,7 +313,7 @@ function populateDropdowns(excludeId = null) {
     )
     .join("");
   document.getElementById("f-pasangan").innerHTML =
-    '<option value="">-- Pilih Pasangan --</option>' + spouseOpts;
+    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + spouseOpts;
 }
 
 function previewAvatar() {
@@ -464,6 +501,20 @@ function renderTree() {
   const linesG = document.createElementNS("http://www.w3.org/2000/svg", "g");
   linesG.setAttribute("id", "tree-lines");
 
+  // Kumpulkan semua pasangan untuk digambar
+  const couples = [];
+  members.forEach((m) => {
+    if (m.pasanganId && m.id < m.pasanganId) {
+      const partner = members.find((p) => p.id === m.pasanganId);
+      if (partner) {
+        couples.push({
+          husband: m.jk === "L" ? m : partner,
+          wife: m.jk === "L" ? partner : m,
+        });
+      }
+    }
+  });
+
   Object.entries(positions).forEach(([id, pos]) => {
     const m = members.find((x) => x.id === id);
     if (!m) return;
@@ -520,13 +571,36 @@ function renderTree() {
         linesG.appendChild(path);
       });
     }
+  });
 
-    if (m.pasanganId && positions[m.pasanganId] && m.id < m.pasanganId) {
-      const sp = positions[m.pasanganId];
-      const x1 = pos.x + NODE_W,
-        y1 = pos.y + NODE_H / 2;
-      const x2 = sp.x,
-        y2 = sp.y + NODE_H / 2;
+  // Gambar garis pasangan dengan warna unik dan posisi yang presisi
+  couples.forEach((couple) => {
+    if (positions[couple.husband.id] && positions[couple.wife.id]) {
+      const husbandPos = positions[couple.husband.id];
+      const wifePos = positions[couple.wife.id];
+      const coupleColor = getCoupleColor(couple.husband.id, couple.wife.id);
+
+      // Tentukan posisi garis berdasarkan posisi relatif
+      // Jika suami di kanan istri, garis dari kanan suami ke kiri istri
+      // Jika suami di kiri istri, garis dari kiri suami ke kanan istri
+      let x1, y1, x2, y2;
+
+      if (husbandPos.x > wifePos.x) {
+        // Suami di kanan, istri di kiri
+        // Garis dari sisi KIRI suami ke sisi KANAN istri
+        x1 = husbandPos.x; // sisi kiri suami
+        y1 = husbandPos.y + NODE_H / 2;
+        x2 = wifePos.x + NODE_W; // sisi kanan istri
+        y2 = wifePos.y + NODE_H / 2;
+      } else {
+        // Suami di kiri, istri di kanan
+        // Garis dari sisi KANAN suami ke sisi KIRI istri
+        x1 = husbandPos.x + NODE_W; // sisi kanan suami
+        y1 = husbandPos.y + NODE_H / 2;
+        x2 = wifePos.x; // sisi kiri istri
+        y2 = wifePos.y + NODE_H / 2;
+      }
+
       const line = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "line",
@@ -535,12 +609,13 @@ function renderTree() {
       line.setAttribute("y1", y1);
       line.setAttribute("x2", x2);
       line.setAttribute("y2", y2);
-      line.setAttribute("stroke", "#c9a96e");
-      line.setAttribute("stroke-width", "2");
-      line.setAttribute("stroke-dasharray", "6,4");
+      line.setAttribute("stroke", coupleColor);
+      line.setAttribute("stroke-width", "3");
+      line.setAttribute("stroke-dasharray", "8,5");
       linesG.appendChild(line);
     }
   });
+
   world.appendChild(linesG);
 
   const nodesG = document.createElementNS("http://www.w3.org/2000/svg", "g");
