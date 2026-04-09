@@ -1,7 +1,9 @@
 // STATE
 let members = [];
 let editingId = null;
-let scriptUrl = localStorage.getItem("gsheet_url") || "";
+const DEFAULT_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbzgO2pBzuuRRSvBS6kBQEL72I0qQJ0J37wt7mbmptec7tJSZGESbec0C3JVNAueDY8C/exec";
+let scriptUrl = localStorage.getItem("gsheet_url") || DEFAULT_SCRIPT_URL;
 let treeVP = { x: 0, y: 0, scale: 1 };
 let treePan = null;
 
