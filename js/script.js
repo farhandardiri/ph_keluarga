@@ -296,14 +296,14 @@ function populateDropdowns(excludeId = null) {
     .map((m) => `<option value="${m.id}">${m.nama} (♂)</option>`)
     .join("");
   document.getElementById("f-ayah").innerHTML =
-    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + fatherOpts;
+    '<option value="">-- Pilih Ayah --</option>' + fatherOpts;
 
   const motherOpts = members
     .filter((m) => m.id !== excludeId && m.jk === "P")
     .map((m) => `<option value="${m.id}">${m.nama} (♀)</option>`)
     .join("");
   document.getElementById("f-ibu").innerHTML =
-    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + motherOpts;
+    '<option value="">-- Pilih Ibu --</option>' + motherOpts;
 
   const spouseOpts = members
     .filter((m) => m.id !== excludeId)
@@ -313,7 +313,7 @@ function populateDropdowns(excludeId = null) {
     )
     .join("");
   document.getElementById("f-pasangan").innerHTML =
-    '<option value="">-- Tidak ada / Tidak diketahui --</option>' + spouseOpts;
+    '<option value="">-- Pilih Pasangan --</option>' + spouseOpts;
 }
 
 function previewAvatar() {
