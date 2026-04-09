@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pohon Keluarga - Urut Generasi & Anak</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Nunito:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <div class="logo-icon">🌳</div>
+        <h1>Pohon Keluarga</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" onclick="syncData()">
+          <span>🔄</span><span>Sinkron</span>
+        </button>
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <span>+</span><span>Tambah Anggota</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('tree')" id="tab-tree">
+        🌳 Pohon
+      </div>
+      <div class="tab" onclick="switchTab('list')" id="tab-list">👥 Daftar</div>
+      <div class="tab" onclick="switchTab('settings')" id="tab-settings">
+        ⚙️ Pengaturan
+      </div>
+    </div>
+
+    <div class="main" style="padding-bottom: 60px">
+      <div class="view active" id="view-tree">
+        <div class="root-selector">
+          <label>Tampilkan dari:</label>
+          <select id="tree-root-select" onchange="renderTree()">
+            <option value="">-- Semua (Urut Generasi) --</option>
+          </select>
+          <button
+            class="btn btn-ghost"
+            onclick="resetTreeView()"
+            style="padding: 8px 12px"
+          >
+            ↺ Reset
+          </button>
+        </div>
+        <div id="tree-container">
+          <div class="tree-controls">
+            <button
+              class="tree-zoom-btn"
+              onclick="treeZoom(0.15)"
+              title="Perbesar"
+            >
+              +
+            </button>
+            <div class="tree-scale-label" id="zoom-label">100%</div>
+            <button
+              class="tree-zoom-btn"
+              onclick="treeZoom(-0.15)"
+              title="Perkecil"
+            >
+              −
+            </button>
+            <button
+              class="tree-zoom-btn"
+              onclick="treeFit()"
+              title="Sesuaikan layar"
+              style="font-size: 11px"
+            >
+              ⊡
+            </button>
+          </div>
+          <svg id="tree-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter
+                id="node-shadow"
+                x="-20%"
+                y="-20%"
+                width="140%"
+                height="140%"
+              >
+                <feDropShadow
+                  dx="0"
+                  dy="3"
+                  stdDeviation="5"
+                  flood-color="rgba(0,0,0,0.5)"
+                />
+              </filter>
+            </defs>
+            <g id="tree-world"></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="view" id="view-list">
+        <div class="toolbar">
+          <div class="search-box">
+            <span class="icon">🔍</span>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Cari nama, tempat lahir..."
+              oninput="filterMembers()"
+            />
+          </div>
+          <select onchange="filterMembers()" id="filter-gender">
+            <option value="">Semua Jenis Kelamin</option>
+            <option value="L">Laki-laki</option>
+            <option value="P">Perempuan</option>
+          </select>
+          <select onchange="filterMembers()" id="filter-gen">
+            <option value="">Semua Generasi</option>
+          </select>
+        </div>
+        <div id="member-grid" class="member-grid"></div>
+      </div>
+
+      <div class="view" id="view-settings">
+        <div class="settings-card">
+          <h3>🔗 Koneksi Google Sheets</h3>
+          <p
+            style="
+              font-size: 13px;
+              color: var(--text-muted);
+              margin-bottom: 16px;
+            "
+          >
+            Masukkan URL Web App dari Google Apps Script Anda untuk
+            menghubungkan aplikasi ke Google Sheets.
+          </p>
+          <div class="form-group">
+            <label>URL Google Apps Script Web App</label>
+            <div class="input-with-btn">
+              <input
+                type="url"
+                id="script-url-input"
+                placeholder="https://script.google.com/macros/s/.../exec"
+                value=""
+              />
+              <button class="btn btn-primary" onclick="saveScriptUrl()">
+                Simpan
+              </button>
+            </div>
+          </div>
+          <div
+            id="connection-status"
+            style="margin-top: 12px; font-size: 13px"
+          ></div>
+        </div>
+
+        <div class="settings-card">
+          <h3>📊 Statistik</h3>
+          <div
+            id="stats-grid"
+            style="
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+              gap: 12px;
+            "
+          ></div>
+        </div>
+
+        <div class="settings-card">
+          <h3>💾 Data Lokal</h3>
+          <p
+            style="
+              font-size: 13px;
+              color: var(--text-muted);
+              margin-bottom: 16px;
+            "
+          >
+            Data disimpan sementara di browser. Klik Sinkron untuk menyimpan ke
+            Google Sheets.
+          </p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button class="btn btn-ghost" onclick="exportJSON()">
+              📤 Export JSON
+            </button>
+            <button
+              class="btn btn-ghost"
+              onclick="document.getElementById('import-file').click()"
+            >
+              📥 Import JSON
+            </button>
+            <button class="btn btn-danger" onclick="clearLocalData()">
+              🗑️ Hapus Data Lokal
+            </button>
+            <input
+              type="file"
+              id="import-file"
+              accept=".json"
+              style="display: none"
+              onchange="importJSON(event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Siap</span>
+      <span style="margin-left: auto" id="member-count">0 anggota</span>
+    </div>
+
+    <div class="modal-overlay" id="modal-member">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modal-title">Tambah Anggota</h2>
+          <button class="close-btn" onclick="closeModal('modal-member')">
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="avatar-upload">
+            <div class="avatar-preview" id="avatar-preview">👤</div>
+            <div>
+              <div
+                style="font-size: 13px; font-weight: 600; margin-bottom: 6px"
+              >
+                Foto Profil
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-muted);
+                  margin-bottom: 8px;
+                "
+              >
+                Gunakan URL gambar (Google Drive / Imgur / dll)
+              </div>
+              <input
+                type="url"
+                id="foto-url"
+                placeholder="https://..."
+                oninput="previewAvatar()"
+                style="
+                  padding: 7px 12px;
+                  background: var(--surface2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  color: var(--text);
+                  font-family: &quot;Nunito&quot;, sans-serif;
+                  font-size: 12px;
+                  outline: none;
+                  width: 100%;
+                "
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nama Lengkap *</label
+              ><input type="text" id="f-nama" placeholder="Nama lengkap" />
+            </div>
+            <div class="form-group">
+              <label>Jenis Kelamin *</label
+              ><select id="f-jk">
+                <option value="L">Laki-laki</option>
+                <option value="P">Perempuan</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tempat Lahir</label
+              ><input
+                type="text"
+                id="f-tempat-lahir"
+                placeholder="Kota kelahiran"
+              />
+            </div>
+            <div class="form-group">
+              <label>Tanggal Lahir</label><input type="date" id="f-tgl-lahir" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Status</label
+              ><select id="f-status">
+                <option value="Hidup">Masih Hidup</option>
+                <option value="Wafat">Sudah Wafat</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tanggal Wafat</label><input type="date" id="f-tgl-wafat" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Ayah</label
+              ><select id="f-ayah">
+                <option value="">-- Tidak ada / Tidak diketahui --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Ibu</label
+              ><select id="f-ibu">
+                <option value="">-- Tidak ada / Tidak diketahui --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Pasangan</label
+              ><select id="f-pasangan">
+                <option value="">-- Tidak ada / Tidak diketahui --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Generasi ke-</label
+              ><input
+                type="number"
+                id="f-generasi"
+                placeholder="1,2,3..."
+                min="1"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Catatan</label
+            ><textarea
+              id="f-catatan"
+              placeholder="Informasi tambahan..."
+            ></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button
+              class="btn btn-danger"
+              id="btn-delete"
+              onclick="deleteMember()"
+              style="display: none"
+            >
+              🗑️ Hapus
+            </button>
+            <button class="btn btn-ghost" onclick="closeModal('modal-member')">
+              Batal
+            </button>
+            <button class="btn btn-primary" onclick="saveMember()">
+              💾 Simpan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-detail">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="detail-modal-title">Detail Anggota</h2>
+          <button class="close-btn" onclick="closeModal('modal-detail')">
+            ×
+          </button>
+        </div>
+        <div class="modal-body" id="detail-modal-body"></div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/script.js"></script>
+  </body>
+</html>
